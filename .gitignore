@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+.env
+data/interaction_logs.csv
