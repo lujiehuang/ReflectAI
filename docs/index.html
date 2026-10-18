@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReflectAI Live Demo</title>
+<style>
+:root{--bg:#f7f8fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;--accent:#4f46e5;--warn:#b45309;--warnbg:#fffbeb;--ok:#166534;--okbg:#f0fdf4}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+.app{display:grid;grid-template-columns:270px 1fr;min-height:100vh}.sidebar{background:#fff;border-right:1px solid var(--border);padding:32px 24px}.main{padding:36px;max-width:1180px;width:100%;margin:0 auto}
+h1{margin:0;font-size:30px}.tag{color:var(--muted);margin-top:8px}.section-title{font-size:14px;font-weight:700;margin:34px 0 12px}.choice{display:block;margin:8px 0;padding:12px;border:1px solid var(--border);border-radius:12px;cursor:pointer}.choice input{margin-right:8px}.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+textarea{width:100%;min-height:110px;border:1px solid #d1d5db;border-radius:12px;padding:14px;font:inherit;resize:vertical}.row{display:flex;gap:12px;flex-wrap:wrap}.btn{border:none;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}.primary{background:var(--accent);color:#fff}.secondary{background:#f3f4f6;color:#111827}.pill{display:inline-block;padding:7px 11px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:13px;font-weight:700}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.metric{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px}.metric .label{font-size:12px;color:var(--muted)}.metric .value{font-size:25px;font-weight:800;margin-top:4px}.warning{background:var(--warnbg);border:1px solid #fcd34d;border-radius:14px;padding:18px}.success{background:var(--okbg);border:1px solid #bbf7d0;border-radius:14px;padding:18px}.small{font-size:13px;color:var(--muted)}.hidden{display:none}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left}
+@media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{border-right:none;border-bottom:1px solid var(--border)}.metrics{grid-template-columns:1fr}.main{padding:20px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <h1>🧠 ReflectAI</h1>
+    <div class="tag">Human–LLM collaboration</div>
+    <div class="section-title">Experimental condition</div>
+    <label class="choice"><input type="radio" name="condition" value="Baseline"> Baseline</label>
+    <label class="choice"><input type="radio" name="condition" value="Static Reflection"> Static Reflection</label>
+    <label class="choice"><input type="radio" name="condition" value="Adaptive Reflection" checked> Adaptive Reflection</label>
+    <div class="section-title">About</div>
+    <div class="small">This browser-only demo mirrors the research logic of the Streamlit prototype. It does not call an external LLM.</div>
+  </aside>
+
+  <main class="main">
+    <div class="pill">LIVE INTERACTIVE PROTOTYPE</div>
+    <h2 style="font-size:38px;margin:14px 0 4px">Adaptive Reflection Interface</h2>
+    <div class="tag">Detect possible over-reliance and preserve user agency.</div>
+
+    <div class="card">
+      <strong>Ask the AI a question</strong>
+      <textarea id="query" placeholder="Example: Should I accept a PhD offer if the funding is lower but the supervisor is a better fit?"></textarea>
+      <div style="margin-top:12px"><button class="btn primary" onclick="generate()">Generate AI response</button></div>
+    </div>
+
+    <div id="responseCard" class="card hidden">
+      <h3>AI response</h3>
+      <p id="answer"></p>
+      <div class="small">Confidence cue: important factual or high-stakes claims should be independently verified.</div>
+    </div>
+
+    <div id="decisionCard" class="card hidden">
+      <h3>Your decision</h3>
+      <div class="row">
+        <button class="btn secondary" onclick="setAction('Accept')">Accept</button>
+        <button class="btn secondary" onclick="setAction('Revise')">Revise</button>
+        <button class="btn secondary" onclick="setAction('Reject')">Reject</button>
+      </div>
+      <div class="small" style="margin:10px 0">Selected action: <strong id="actionLabel">Accept</strong></div>
+      <textarea id="finalText"></textarea>
+      <div style="margin-top:12px"><button class="btn primary" onclick="continueFlow()">Continue</button></div>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="metrics">
+        <div class="metric"><div class="label">Reliance-risk level</div><div class="value" id="riskLevel">—</div></div>
+        <div class="metric"><div class="label">Heuristic score</div><div class="value" id="riskScore">—</div></div>
+        <div class="metric"><div class="label">Condition</div><div class="value" id="conditionMetric" style="font-size:18px">—</div></div>
+      </div>
+      <div id="reflectionBox" class="warning hidden" style="margin-top:16px">
+        <strong>Adaptive reflection triggered</strong>
+        <ol>
+          <li>What assumption in the AI response might be wrong?</li>
+          <li>What evidence would change your decision?</li>
+          <li>Give one alternative answer or counterargument.</li>
+        </ol>
+        <div class="small" id="rationale"></div>
+      </div>
+      <div id="noReflection" class="success hidden" style="margin-top:16px">
+        No reflection was triggered for this interaction.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Session log</h3>
+      <table>
+        <thead><tr><th>Condition</th><th>Action</th><th>Latency</th><th>Revision Δ</th><th>Risk</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+let generatedAt=null, currentAnswer="", action="Accept";
+
+function selectedCondition(){
+  return document.querySelector('input[name="condition"]:checked').value;
+}
+function generate(){
+  const q=document.getElementById("query").value.trim();
+  if(!q) return;
+  if(/phd|career|job/i.test(q)){
+    currentAnswer="Separate short-term constraints from long-term goals. Compare funding, supervision, training quality, and desired career outcomes before deciding.";
+  } else if(/ai|llm/i.test(q)){
+    currentAnswer="LLM assistance can improve speed and idea generation, but it can also encourage over-reliance. Verify key claims and preserve an opportunity to revise or reject the model output.";
+  } else {
+    currentAnswer="Here is a concise answer. For an important decision, verify key assumptions and consider at least one alternative interpretation.";
+  }
+  document.getElementById("answer").textContent=currentAnswer;
+  document.getElementById("finalText").value=currentAnswer;
+  document.getElementById("responseCard").classList.remove("hidden");
+  document.getElementById("decisionCard").classList.remove("hidden");
+  document.getElementById("result").classList.add("hidden");
+  generatedAt=performance.now();
+  action="Accept";
+  document.getElementById("actionLabel").textContent=action;
+}
+function setAction(a){
+  action=a; document.getElementById("actionLabel").textContent=a;
+  if(a!=="Accept") document.getElementById("finalText").value="";
+  else document.getElementById("finalText").value=currentAnswer;
+}
+function similarity(a,b){
+  a=(a||"").trim(); b=(b||"").trim();
+  if(!a && !b) return 1;
+  const longer=a.length>=b.length?a:b, shorter=a.length<b.length?a:b;
+  if(longer.length===0) return 1;
+  let matches=0;
+  const set=new Set(shorter.toLowerCase().split(/\s+/));
+  longer.toLowerCase().split(/\s+/).forEach(w=>{if(set.has(w)) matches++});
+  return Math.min(1,matches/Math.max(1,longer.split(/\s+/).length));
+}
+function assess(latency,answer,edited,act){
+  let score=0,reasons=[];
+  if(latency<8){score+=.40;reasons.push("very fast acceptance")}
+  else if(latency<20){score+=.20;reasons.push("fast acceptance")}
+  const sim=similarity(answer,edited);
+  if(sim>.97){score+=.35;reasons.push("almost no revision")}
+  else if(sim>.85){score+=.20;reasons.push("minimal revision")}
+  if(act==="Accept"){score+=.20;reasons.push("explicit acceptance")}
+  score=Math.min(1,Math.round(score*1000)/1000);
+  const level=score>=.65?"High":score>=.35?"Medium":"Low";
+  return {score,level,reasons,revisionDelta:Math.round((1-sim)*1000)/1000};
+}
+function continueFlow(){
+  const latency=Math.max(0,(performance.now()-generatedAt)/1000);
+  const edited=document.getElementById("finalText").value;
+  const a=assess(latency,currentAnswer,edited,action);
+  const condition=selectedCondition();
+  const trigger=condition==="Static Reflection" || (condition==="Adaptive Reflection" && ["Medium","High"].includes(a.level));
+  document.getElementById("riskLevel").textContent=a.level;
+  document.getElementById("riskScore").textContent=a.score.toFixed(2);
+  document.getElementById("conditionMetric").textContent=condition;
+  document.getElementById("reflectionBox").classList.toggle("hidden",!trigger);
+  document.getElementById("noReflection").classList.toggle("hidden",trigger);
+  document.getElementById("rationale").textContent="Trigger rationale: "+(a.reasons.join(", ")||"limited independent revision");
+  document.getElementById("result").classList.remove("hidden");
+
+  const tr=document.createElement("tr");
+  tr.innerHTML="<td>"+condition+"</td><td>"+action+"</td><td>"+latency.toFixed(1)+"s</td><td>"+a.revisionDelta.toFixed(2)+"</td><td>"+a.level+" ("+a.score.toFixed(2)+")</td>";
+  document.getElementById("logBody").prepend(tr);
+}
+</script>
+</body>
+</html>
