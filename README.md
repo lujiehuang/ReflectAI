@@ -66,16 +66,16 @@ The design goal is not to block AI assistance, but to restore a small amount of 
 
 ## Experimental design
 
-A straightforward study can compare two interface conditions:
+A straightforward study can compare three interface conditions:
 
-### Condition A — Baseline LLM
+### Condition A — Baseline
 Users receive:
 - an LLM response;
 - a generic verification / confidence cue;
 - the ability to accept, revise, or reject the answer.
 
-### Condition B — Reflective LLM
-Users receive the same interaction, but a behavioral trigger can introduce the adaptive reflection prompt.
+### Condition B — Static Reflection
+Users receive the same interaction plus the reflection prompt on every trial. This controls for the presence of reflection itself.\n\n### Condition C — Adaptive Reflection\nUsers receive the same interaction, but reflection is triggered only when the transparent behavioral heuristic indicates medium/high reliance risk.
 
 ### Candidate dependent variables
 
@@ -114,10 +114,10 @@ The current prototype is deliberately minimal. A research-grade version could ex
 ```text
 ReflectAI/
 ├── app.py                    # interactive research prototype
-├── evaluation.py             # simple condition-level summaries
+├── core.py                   # testable reliance-risk and intervention logic\n├── evaluation.py             # simple condition-level summaries
 ├── requirements.txt
 ├── README.md
-├── .gitignore
+├── tests/                    # unit tests for risk/intervention logic\n├── .github/workflows/ci.yml # compile, unit-test, and Streamlit smoke-test\n├── .gitignore
 ├── docs/
 │   ├── architecture.md
 │   └── interface-preview.svg
